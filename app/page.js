@@ -7,35 +7,40 @@ export default function Home() {
   const [activity, setActivity] = useState("");
   const [participants, setParticipants] = useState("");
   const [data, setData] = useState(null);
-
-  function generateURL() {
-    if (!activity && !participants) {
-      return "https://bored-api.appbrewery.com/random";
-    }
-    if (activity && !participants) {
-      return `https://bored-api.appbrewery.com/filter?type=${activity}`;
-    }
-    if (!activity && participants) {
-      return `https://bored-api.appbrewery.com/filter?participants=${participants}`;
-    }
-    return `https://bored-api.appbrewery.com/filter?type=${activity}&participants=${participants}`;
-  }
+  const [showSaved, setShowSaved] = useState(false);
+  const [savedActivities, setSavedActivities] = useState([]);
 
   async function fetchAPI() {
-    const url = generateURL();
-    const response = await fetch(url);
+    let url = "https://bored-api.appbrewery.com/random";
+    if (activity && participants) {
+      url = `https://bored-api.appbrewery.com/filter?type=${activity}&participants=${participants}`;
+    } else if (activity) {
+      url = `https://bored-api.appbrewery.com/filter?type=${activity}`;
+    } else if (participants) {
+      url = `https://bored-api.appbrewery.com/filter?participants=${participants}`;
+    }
+
+    const proxy = "https://thingproxy.freeboard.io/fetch/";
+    const response = await fetch(proxy + url);
     const result = await response.json();
-    return result;
+    setData(result);
   }
 
   useEffect(() => {
     fetchAPI().then((result) => setData(result));
-  }, [activity, participants]);
+  }, []);
 
-  async function handleClick() {
-    const result = await fetchAPI();
-    setData(result);
-    console.log(result);
+  function toggleSaveActivity(activity) {
+    setSavedActivities((prev) => {
+      const isAlreadySaved = prev.some((a) => a.key === activity.key);
+      return isAlreadySaved
+        ? prev.filter((a) => a.key !== activity.key)
+        : [...prev, activity];
+    });
+  }
+
+  function handleSaveActivity() {
+    setShowSaved((prev) => !prev);
   }
 
   return (
@@ -44,6 +49,12 @@ export default function Home() {
         Random Activity Suggestion
       </h1>
       <div className="flex flex-col w-1/2 mx-auto ">
+        <button
+          onClick={handleSaveActivity}
+          className="border border-gray-400 hover:bg-red-300 hover:border-red-300 w-16 rounded-md self-end mb-3"
+        >
+          {showSaved ? "All" : "Saved"}
+        </button>
         <select
           className="mb-5 border border-gray-600 p-3 rounded-lg focus:outline-gray-700"
           onChange={(e) => {
@@ -78,12 +89,43 @@ export default function Home() {
         </select>
       </div>
       <button
-        onClick={handleClick}
+        onClick={fetchAPI}
         className="w-1/2 mx-auto bg-black hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg mt-5"
       >
         Generate Activities
       </button>
-      {data && <ActivityCard data={data} />}
+      <h2 className="mt-10 mb-5 text-xl mx-auto w-1/2">
+        {data?.length ? `${data.length} Suggestions` : ""}
+      </h2>
+      <div>
+        {showSaved ? (
+          savedActivities.length > 0 ? (
+            savedActivities.map((activity) => (
+              <ActivityCard
+                key={activity.key}
+                data={activity}
+                isSaved={true}
+                onSave={() => toggleSaveActivity(activity)}
+              />
+            ))
+          ) : (
+            <p className="text-center mt-5">No saved activities yet.</p>
+          )
+        ) : data ? (
+          data.error ? (
+            <p className="text-center mt-5">{data.error}</p>
+          ) : data.length > 0 ? (
+            data.map((activity, index) => (
+              <ActivityCard
+                key={activity.key || index}
+                data={activity}
+                isSaved={savedActivities.some((a) => a.key === activity.key)}
+                onSave={() => toggleSaveActivity(activity)}
+              />
+            ))
+          ) : null
+        ) : null}
+      </div>
     </div>
   );
 }
