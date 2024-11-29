@@ -9,21 +9,35 @@ export default function Home() {
   const [data, setData] = useState(null);
   const [showSaved, setShowSaved] = useState(false);
   const [savedActivities, setSavedActivities] = useState([]);
+  const [isRandom, setIsRandom] = useState(false);
 
   async function fetchAPI() {
-    let url = "https://bored-api.appbrewery.com/random";
+    let url = "";
     if (activity && participants) {
       url = `https://bored-api.appbrewery.com/filter?type=${activity}&participants=${participants}`;
+      setIsRandom(false);
     } else if (activity) {
       url = `https://bored-api.appbrewery.com/filter?type=${activity}`;
+      setIsRandom(false);
     } else if (participants) {
       url = `https://bored-api.appbrewery.com/filter?participants=${participants}`;
+      setIsRandom(false);
+    } else {
+      url = "https://bored-api.appbrewery.com/random";
+      setIsRandom(true);
     }
 
     const proxy = "https://thingproxy.freeboard.io/fetch/";
-    const response = await fetch(proxy + url);
-    const result = await response.json();
-    setData(result);
+    try {
+      const response = await fetch(proxy + url);
+      const result = await response.json();
+      setData(Array.isArray(result) ? result : [result]);
+      console.log("Result:", result);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+    setActivity("");
+    setParticipants("");
   }
 
   useEffect(() => {
@@ -95,7 +109,13 @@ export default function Home() {
         Generate Activities
       </button>
       <h2 className="mt-10 mb-5 text-xl mx-auto w-1/2">
-        {data?.length ? `${data.length} Suggestions` : ""}
+        {!isRandom && !showSaved && data?.length
+          ? `${data.length} Suggestions`
+          : isRandom && data?.length
+          ? "Random Activity Recommendation"
+          : showSaved
+          ? `${savedActivities.length} Saved Activities`
+          : ""}
       </h2>
       <div>
         {showSaved ? (
